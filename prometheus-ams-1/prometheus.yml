@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: amsterdam
+    replica: 1
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus-ams-1.domain.local:9090', 'prometheus-ams-0.domain.local:9090']
+
+  - job_name: 'sidecar'
+    static_configs:
+      - targets: ['prometheus-ams-1.domain.local:10902','prometheus-ams-0.domain.local:10902']
+
+  - job_name: 'thanos-store'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['thanos-store-gw.domain.local:10902']
+
+  - job_name: 'thanos-receive'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['thanos-receive.domain.local:10902']
+
+  - job_name: 'thanos-query'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['thanos-querier.domain.local:29090']
+
+  - job_name: 'thanos-compact'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['thanos-compact.domain.local:10902']
+
+  - job_name: 'node-exporter'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['prometheus-ams-0.domain.local:9100', 'prometheus-ams-1.domain.local:9100', 'thanos-querier.domain.local:9100', 'thanos-store-gw.domain.local:9100', 'thanos-receive.domain.local:9100', 'thanos-compact.domain.local:9100', 'thanos-querier.domain.local:10902']
+
+  - job_name: 'loki'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['thanos-querier.domain.local:3100']
+
+  - job_name: 'promtail'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['prometheus-ams-0.domain.local:9080', 'prometheus-ams-1.domain.local:9080', 'thanos-querier.domain.local:9080', 'thanos-store-gw.domain.local:9080', 'thanos-receive.domain.local:9080', 'thanos-compact.domain.local:9080', 'thanos-querier.domain.local:9080']
+
+  - job_name: 'pushgateway'
+    honor_labels: true
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['pushgateway.domain.local:9091']
