@@ -1,0 +1,21 @@
+[Unit]
+Description=Thanos-StoreGW
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/thanos \
+    store \
+    --log.level debug \
+    --grpc-address 0.0.0.0:10901 \
+    --grpc-grace-period 1s \
+    --http-address 0.0.0.0:10902 \
+    --http-grace-period 1s \
+    --data-dir /var/lib/thanos/data/store \
+    --objstore.config-file /var/lib/thanos/config/bucket.yml
+
+[Install]
+WantedBy=multi-user.target
