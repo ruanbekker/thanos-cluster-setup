@@ -1,0 +1,14 @@
+[Unit]
+Description=Loki
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/loki \
+    -config.file /etc/loki/loki-config.yml
+
+[Install]
+WantedBy=multi-user.target

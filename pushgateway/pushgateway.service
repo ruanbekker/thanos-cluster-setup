@@ -1,0 +1,18 @@
+[Unit]
+Description=Pushgateway
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/usr/local/bin/pushgateway \
+    --web.listen-address=":9091" \
+    --web.telemetry-path="/metrics" \
+    --persistence.file="/tmp/metric.store" \
+    --persistence.interval=5m \
+    --log.level="info"
+
+[Install]
+WantedBy=multi-user.target
