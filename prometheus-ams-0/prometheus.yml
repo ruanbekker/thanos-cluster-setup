@@ -5,6 +5,23 @@ global:
     cluster: amsterdam
     replica: 0
 
+rule_files:
+  - 'alert.rules'
+
+alerting:
+  # We want our alerts to be deduplicated
+  # from different replicas
+  alert_relabel_configs:
+  # https://www.robustperception.io/high-availability-prometheus-alerting-and-notification
+  - source_labels: [replica]
+    regex: (.+)\d+
+    target_label: replica
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - "alertmanager.domain.local:9093"
+
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
