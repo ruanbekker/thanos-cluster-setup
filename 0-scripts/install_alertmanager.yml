@@ -1,0 +1,11 @@
+#!/bin/bash
+
+useradd --no-create-home --shell /bin/false prometheus
+ALERTMANAGER_VERSION="0.20.0"
+wget https://github.com/prometheus/alertmanager/releases/download/v${ALERTMANAGER_VERSION}/alertmanager-${ALERTMANAGER_VERSION}.linux-amd64.tar.gz
+tar -xf alertmanager-${ALERTMANAGER_VERSION}.linux-amd64.tar.gz
+mv alertmanager-${ALERTMANAGER_VERSION}.linux-amd64/alertmanager /usr/local/bin/alertmanager
+mv alertmanager-${ALERTMANAGER_VERSION}.linux-amd64/amtool /usr/local/bin/amtool
+mkdir /etc/alertmanager
+mv alertmanager-${ALERTMANAGER_VERSION}.linux-amd64/alertmanager.yml /etc/alertmanager/alertmanager.yml
+

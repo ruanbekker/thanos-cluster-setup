@@ -1,0 +1,23 @@
+[Unit]
+Description=AlertManager
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/local/bin/alertmanager \
+    --log.level debug \
+    --cluster.listen-address= \
+    --web.listen-address ":9093" \
+    --config.file /etc/alertmanager/alertmanager.yml \
+    --storage.path /var/lib/alertmanager \
+    --web.external-url http://alertmanager.domain.local:9093
+
+[Install]
+WantedBy=multi-user.target
