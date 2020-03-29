@@ -1,0 +1,8 @@
+type: S3
+config:
+  bucket: s3.bucket.name
+  endpoint: s3.eu-west-1.amazonaws.com
+  insecure: false
+  signature_version2: true
+  access_key: x
+  secret_key: x
