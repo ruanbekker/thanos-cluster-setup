@@ -4,13 +4,13 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-User=root
-Group=root
+User=prometheus
+Group=prometheus
 Type=simple
 ExecStart=/usr/local/bin/pushgateway \
     --web.listen-address=":9091" \
     --web.telemetry-path="/metrics" \
-    --persistence.file="/tmp/metric.store" \
+    --persistence.file="/var/pushgateway/metric.store" \
     --persistence.interval=5m \
     --log.level="info"
 

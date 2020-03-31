@@ -2,11 +2,15 @@
 Description=Thanos-Sidecar
 Wants=network-online.target
 After=network-online.target prometheus.service
+StartLimitIntervalSec=500
+StartLimitBurst=5
 
 [Service]
 User=prometheus
 Group=prometheus
 Type=simple
+Restart=on-failure
+RestartSec=5s
 ExecStart=/usr/local/bin/thanos \
     sidecar \
     --tsdb.path /var/lib/prometheus \

@@ -2,11 +2,15 @@
 Description=Thanos-Receive
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=500
+StartLimitBurst=5
 
 [Service]
 User=prometheus
 Group=prometheus
 Type=simple
+Restart=on-failure
+RestartSec=5s
 ExecStart=/usr/local/bin/thanos \
     receive \
     --log.level debug \

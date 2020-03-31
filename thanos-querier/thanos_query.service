@@ -2,14 +2,18 @@
 Description=Thanos-Querier
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=500
+StartLimitBurst=5
 
 [Service]
 User=prometheus
 Group=prometheus
+Restart=on-failure
+RestartSec=5s
 Type=simple
 ExecStart=/usr/local/bin/thanos \
     query \
-    --http-address 0.0.0.0:29090 \
+    --http-address 0.0.0.0:10902 \
     --query.replica-label replica \
     --store prometheus-ams-0.domain.local:10901 \
     --store prometheus-ams-1.domain.local:10901 \
