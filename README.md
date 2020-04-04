@@ -2,7 +2,7 @@
 
 Multi-Node Thanos Cluster Setup
 
-- Work in Progress..
+- Work in Progress.. see [wiki](https://github.com/ruanbekker/thanos-cluster-setup/wiki/Install)
 
 ## Components
 
