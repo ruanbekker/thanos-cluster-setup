@@ -1,0 +1,45 @@
+# this is a example config of a remote prometheus
+# that ships its metrics to the remote-write endpoint
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: prometheus-remote-a
+    aws_environment: dev
+    replica: 0
+
+rule_files:
+  - '/etc/prometheus/rules/host_alert.rules'
+
+alerting:
+  # duplicated alerts with thanos
+  # https://github.com/thanos-io/thanos/blob/acb1cb03fd5ecf3e044a97642be50897db11c34f/tutorials/kubernetes-demo/manifests/prometheus-ha-sidecar.yaml#L179-L189
+  alert_relabel_configs:
+  - regex: replica
+    action: labeldrop
+  alertmanagers:
+  - scheme: https
+    static_configs:
+    - targets: ['alertmanager.localdns.xyz']
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus-remote-a'
+
+  - job_name: 'thanos-sidecar'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['localhost:10902']
+        labels:
+          instance: 'prometheus-remote-a'
+
+remote_write:
+- url: https://prometheus-remote-write.localdns.xyz/api/v1/receive
