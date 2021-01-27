@@ -32,6 +32,13 @@ scrape_configs:
     static_configs:
       - targets: ['prometheus-fra-1.domain.local:10902','prometheus-fra-0.domain.local:10902']
 
+  - job_name: 'alertmanager'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['alertmanager.domain.local:9093']
+      labels:
+        category: logs
+
   - job_name: 'thanos-store'
     scrape_interval: 5s
     static_configs:
