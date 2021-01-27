@@ -1,0 +1,202 @@
+# https://awesome-prometheus-alerts.grep.to/rules.html
+groups:
+- name: host_alerts.yml
+  rules:
+
+  # Alert for any node that is unreachable for > 2 minutes.
+  - alert: NodeDown
+    expr: up{job="node-exporter"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Node Exporter {{ $labels.instance }} is down"
+      summary: "\n- Job: {{ $labels.job }}"
+      description: "Failed to scrape {{ $labels.job }} on {{ $labels.instance }} for more than 2 minutes. Node might be down."
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # test alert on debug instance
+  #- alert: DebugInstanceHardDiskLow
+  #  expr: (node_filesystem_avail_bytes{mountpoint="/", instance="debug-prod-ec2-instance"}  * 100) / node_filesystem_size_bytes{mountpoint="/", instance="debug-prod-ec2-instance"} < 20
+  #  for: 1m
+  #  labels:
+  #    severity: debug
+  #    alert_channel: debugger
+  #    team: devops
+  #    aws_region: eu-west-1
+  #  annotations:
+  #    title: "[TEST] Disk Usage is Low in {{ $labels.instance }}"
+  #    description: "Instance {{ $labels.instance }} has less than {{ humanize $value}}% available on mount {{ $labels.mountpoint }} "
+  #    summary: "Low Disk Space Available"
+  #    runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert for any instance that is unreachable for > 2 minutes.
+  - alert: ServiceDown
+    expr: up == 0
+    for: 2m
+    labels:
+      severity: critical
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Job {{ $labels.job }} is down"
+      summary: "\n- Job: {{ $labels.job }}"
+      description: "{{ $labels.job }} hosted on {{ $labels.instance }} has been down for more than 2 minutes."
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # alert on high load
+  - alert: HostHighCPULoad
+    #expr: node_load1 * on(instance) group_left(nodename) (node_uname_info) > 4
+    expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+    for: 5m
+    labels:
+      alert_channel: "slack"
+      team: "devops"
+      severity: "critical"
+    annotations:
+      title: "High CPU Load on {{ $labels.instance }}"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} is under high load."
+      summary: "\n- Node: {{ $labels.instance }} \n- Metric: node_load1 \n- Value: {{ $value }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # alert on low memory
+  - alert: HostLowMemory
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+    for: 2m
+    labels:
+      severity: page
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Memory is Low and {{ $value }}% left on {{ $labels.instance }}"
+      summary: "\n- Node: {{ $labels.instance }} \n- Memory Percentage Available: {{ $value }}"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} has low memory available."
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # alert when the node is under heavy memory pressure. High rate of major page faults
+  - alert: HostMemoryUnderMemoryPressure
+    expr: rate(node_vmstat_pgmajfault[1m]) > 1000
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host memory under memory pressure for instance {{ $labels.instance }}"
+      description: "Node {{ $labels.instance }} is under heavy memory pressure. High rate of major page faults of {{ humanize $value}}"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert on OOM
+  - alert: HostOOMKillDetected
+    expr: increase(node_vmstat_oom_kill[5m]) > 0
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host Out of Memory (OOM) Detected for {{ $labels.instance }}"
+      description: "OOM kill detected"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when host network interfaces are probably receiving too much data (> 100 MB/s)
+  - alert: HostUnusualNetworkThroughputIN
+    expr: sum by (instance) (irate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host network interface for {{ $labels.instance }} is receiving more than 100MBps"
+      description: "Host network interface is receiving > 100 MB/s and triggered at {{ humanize $value }}"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when host network interfaces are probably receiving too much data (> 100 MB/s)
+  - alert: HostUnusualNetworkThroughputOUT
+    expr: sum by (instance) (irate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host network interface for {{ $labels.instance }} is sending more than 100MBps"
+      description: "Host network interface is sending > 100 MB/s and triggered at {{ humanize $value }}"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when disk is probably reading too much data (> 50 MB/s)
+  - alert: HostUnusualDiskReadRate
+    expr: sum by (instance, device) (irate(node_disk_read_bytes_total[2m])) / 1024 / 1024 > 50
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Disk {{ $labels.device }} for {{ $labels.instance }} is reading > 50 MB/s"
+      description: "Disk is reading > 50 MB/s and was triggered at {{ humanize $value }}"
+      summary: "\n- Instance {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when disk is probably writing too much data (> 50 MB/s)
+  - alert: HostUnusualDiskWriteRate
+    expr: sum by (instance, device) (irate(node_disk_written_bytes_total[2m])) / 1024 / 1024 > 50
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Disk {{ $labels.device }} for {{ $labels.instance }} is writing > 50 MB/s"
+      description: "Disk is writing > 50 MB/s and was triggered at {{ humanize $value }}"
+      summary: "\n- Instance {{ $labels.instance }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # alert on disk usage
+  - alert: HostOutOfDiskSpace
+    expr: (node_filesystem_avail_bytes{mountpoint="/"}  * 100) / node_filesystem_size_bytes{mountpoint="/"} < 10
+    for: 1m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Disk Usage is Low in {{ $labels.instance }}"
+      description: "Instance {{ $labels.instance }} disk usage for {{ $labels.mountpoint }} is at {{ humanize $value}}%."
+      summary: "\n- Node: {{ $labels.instance }} \n- Disk Usage: {{ humanize $value}}%"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when disk will be filled in 4 hours at current utilization
+  - alert: HostDiskWillFillIn4Hours
+    expr: predict_linear(node_filesystem_free_bytes{fstype!~"tmpfs"}[1h], 4 * 3600) < 0
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host {{ $labels.instance }} disk will fill in 4 hours"
+      description: "Disk will fill in 4 hours at current write rate"
+      summary: "\n- Instance {{ $labels.instance }} \n- Mountpoint {{ $labels.mountpoint }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
+
+  # Alert when host out of inodes
+  - alert: HostOutOfInodes
+    expr: node_filesystem_files_free{mountpoint ="/"} / node_filesystem_files{mountpoint ="/"} * 100  < 10
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Host {{ $labels.instance }} ran out of inodes"
+      description: "Disk is almost running out of available inodes < 10% left and at {{ humanize $value }} at the moment"
+      summary: "\n- Instance {{ $labels.instance }} \n- Mountpoint {{ $labels.mountpoint }}"
+      runbook: "https://runbooks.localdns.xyz/runs/book1"
