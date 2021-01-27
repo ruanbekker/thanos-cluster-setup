@@ -12,10 +12,11 @@ alerting:
   # We want our alerts to be deduplicated
   # from different replicas
   alert_relabel_configs:
+  # duplicated alerts with thanos
+  # https://github.com/thanos-io/thanos/blob/acb1cb03fd5ecf3e044a97642be50897db11c34f/tutorials/kubernetes-demo/manifests/prometheus-ha-sidecar.yaml#L179-L189
   # https://www.robustperception.io/high-availability-prometheus-alerting-and-notification
-  - source_labels: [replica]
-    regex: (.+)\d+
-    target_label: replica
+  - regex: replica
+    action: labeldrop
   alertmanagers:
   - scheme: http
     static_configs:
