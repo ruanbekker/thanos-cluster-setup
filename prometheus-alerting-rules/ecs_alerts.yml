@@ -1,0 +1,65 @@
+# https://prometheus.io/docs/alerting/latest/notification_examples/
+groups:
+- name: ecs_alerts.yml
+  rules:
+
+  # alert on ecs task cpu utilization more than 80%
+  - alert: ECSTask_HighCPUUsage_80
+    #expr: sum(rate(container_cpu_usage_seconds_total{name=~".+"}[5m]))
+    #  BY (container_label_com_amazonaws_ecs_container_name, name, container_label_com_amazonaws_ecs_cluster)
+    #  * 100 > 80
+    expr: (sum(rate(container_cpu_usage_seconds_total{container_label_com_amazonaws_ecs_cluster!=""}[3m])) BY (name, instance, container_label_com_amazonaws_ecs_container_name, container_label_com_amazonaws_ecs_cluster) * 100) > 80
+    for: 2m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "High CPU for ECS Task {{ $labels.container_label_com_amazonaws_ecs_container_name }}"
+      description: '{{ $labels.container_label_com_amazonaws_ecs_container_name }} on ''{{
+        $labels.container_label_com_amazonaws_ecs_cluster }}'' CPU utilization is at {{ humanize
+        $value}}%.'
+      summary: "\n- ECS Task: {{ $labels.name }}\n- ECS Cluster: {{ $labels.container_label_com_amazonaws_ecs_cluster }}\n- CPU Usage: {{ humanize $value }}\n- Logs: <https://grafana.localdns.xyz/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Bcontainer_name%3D%5C%22{{ $labels.name }}%5C%22%7D%22%7D,%7B%22mode%22:%22Logs%22%7D,%7B%22ui%22:%5Btrue,true,true,%22none%22%5D%7D%5D|{{ $labels.name }}>"
+
+  # alert for ecs task memory consuming more than 1GB
+  - alert: ECSTask_HighMemoryUsage_1G
+    expr: SUM(container_memory_rss{name=~".+"})
+      BY (name, container_label_com_amazonaws_ecs_container_name, container_label_com_amazonaws_ecs_cluster) > 1e+09
+    for: 1m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "High Memory for ECS Task on {{ $labels.container_label_com_amazonaws_ecs_cluster }}"
+      description: '{{ $labels.container_label_com_amazonaws_ecs_container_name }} on ''{{
+        $labels.container_label_com_amazonaws_ecs_cluster }}'' memory usage is {{ humanize
+        $value}}.'
+      summary: Memory alert for ECS task '{{ $labels.name
+        }}' on '{{ $labels.container_label_com_amazonaws_ecs_cluster }}' \nRAM Usage is '{{ $value }}'
+
+  # alert for memory per cluster usage more than 4GB
+  #- alert: ecs_high_memory_cluster_usage_4g
+  #  expr: SUM (container_memory_rss{name=~".+"})  BY (cluster, cluster_name) > 4e+09
+  #  for: 1m
+  #  labels:
+  #    severity: warning
+  #    alert_channel: slack
+  #    team: devops
+  #  annotations:
+  #    title: "High Memory for ECS Cluster on {{ $labels.cluster_name }}"
+  #    description: "{{ $labels.cluster_name }} memory usage is {{ humanize $value}}."
+  #    summary: "Memory alert for ECS Cluster {{ $labels.cluster_name }} \nRAM Usage is {{ $value }}"
+
+  # alert on ecs task cpu utilization more than 80%
+  - alert: ECSTask_Killed
+    expr: time() - container_last_seen{container_label_com_amazonaws_ecs_container_name!=""} > 60
+    for: 1m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Container Task {{ $labels.container_label_com_amazonaws_ecs_container_name }} was killed on {{ $labels.container_label_com_amazonaws_ecs_cluster }}"
+      description: "A container task dissapeared and was last seen 1m ago"
+      summary: "\n- Task Name:{{ $labels.name }}\n- Cluster Name: {{ $labels.container_label_com_amazonaws_ecs_cluster }}"
