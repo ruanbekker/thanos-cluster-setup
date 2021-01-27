@@ -32,6 +32,11 @@ scrape_configs:
     static_configs:
       - targets: ['prometheus-ams-0.domain.local:10902','prometheus-ams-1.domain.local:10902']
 
+  - job_name: 'alertmanager'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['alertmanager.domain.local:9093']
+
   - job_name: 'thanos-store'
     scrape_interval: 5s
     static_configs:
@@ -66,6 +71,8 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: ['prometheus-ams-0.domain.local:9080', 'prometheus-ams-1.domain.local:9080', 'thanos-querier.domain.local:9080', 'thanos-store-gw.domain.local:9080', 'thanos-receive.domain.local:9080', 'thanos-compact.domain.local:9080', 'thanos-querier.domain.local:9080']
+        labels:
+          category: logs
 
   - job_name: 'pushgateway'
     honor_labels: true
