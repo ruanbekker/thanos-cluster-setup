@@ -1,0 +1,95 @@
+# https://awesome-prometheus-alerts.grep.to/rules.html
+groups:
+- name: prometheus_alert.rules
+  rules:
+
+  # Alert for any prometheus job which is down for > 2 minutes.
+  - alert: PrometheusJobMissing
+    expr: absent(up{job=~".+"})
+    for: 2m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus job {{ $labels.job }} missing for {{ $labels.instance }}"
+      summary: "\n- Job: {{ $labels.job }}\n- Instance: {{ $labels.instance}}"
+      description: "A Prometheus job {{ $labels.job }} has disappeared in the last 2 minutes."
+
+  # Alert when prometheus config reload fails
+  - alert: PrometheusConfigurationReloadFailure
+    expr: prometheus_config_last_reload_successful != 1
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus configuration reload failure for {{ $labels.instance }}"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      description: "Prometheus configuration reload error on {{ $labels.instance }}"
+
+  # Alert when prometheus config reload fails
+  - alert: ProcessTooManyRestarts
+    expr: changes(process_start_time_seconds{job=~".+"}[15m]) > 2
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Process had too many restarts on {{ $labels.instance }}"
+      summary: "\n- Instance: {{ $labels.instance }})"
+      description: "Process has restarted more than twice in the last 15 minutes."
+
+  # Alert when Prometheus has no target in service discovery
+  - alert: PrometheusSDTargetEmpty
+    expr: prometheus_sd_discovered_targets == 0
+    for: 5m
+    labels:
+      severity: critical
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus has no targets in service discovery for {{ $labels.instance }}"
+      summary: "\n- Instance {{ $labels.instance }}"
+      description: "Prometheus has no target in service discovery."
+
+  # Alert when prometheus is scraping exporters slowly
+  - alert: PrometheusTargetScrapingSlow
+    expr: prometheus_target_interval_length_seconds{quantile="0.9"} > 60.0012
+    for: 5m
+    labels:
+      severity: warning
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus target scraping slow on instance: {{ $labels.instance }}"
+      summary: "\n- Instance {{ $labels.instance }}"
+      description: "Prometheus is scraping exporters slowly"
+
+  # Alert when prometheus encountered checkpoint creation failures
+  - alert: PrometheusTSDBCheckpointCreationFailures
+    expr: increase(prometheus_tsdb_checkpoint_creations_failed_total[3m]) > 0
+    for: 5m
+    labels:
+      severity: critical
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus TSDB checkpoint creation failures for instance {{ $labels.instance }}"
+      summary: "\n- Instance: {{ $labels.instance }}"
+      description: "Prometheus encountered {{ $value }} checkpoint creation failures"
+
+  # Alert when prometheus encountered checkpoint deletion failures
+  - alert: PrometheusTSDBCheckpointDeletionFailures
+    expr: increase(prometheus_tsdb_checkpoint_deletions_failed_total[3m]) > 0
+    for: 5m
+    labels:
+      severity: critical
+      alert_channel: slack
+      team: devops
+    annotations:
+      title: "Prometheus TSDB checkpoint deletion failures for instance {{ $labels.instance }}"
+      summary: "\n- Instance: {{ $labels.instance }})"
+      description: "Prometheus encountered {{ $value }} checkpoint deletion failures"
