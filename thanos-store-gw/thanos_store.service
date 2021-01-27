@@ -11,7 +11,10 @@ Group=prometheus
 Type=simple
 Restart=on-failure
 RestartSec=5s
+LimitNOFILE=infinity
+LimitNPROC=infinity
 
+ExecStartPre=/bin/sleep 10
 ExecStart=/usr/local/bin/thanos \
     store \
     --log.level debug \
