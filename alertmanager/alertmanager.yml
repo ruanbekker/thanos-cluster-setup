@@ -1,0 +1,280 @@
+# https://prometheus.io/docs/alerting/latest/notification_examples/
+# https://rtfm.co.ua/en/prometheus-alertmanagers-alerts-receivers-and-routing-based-on-severity-level-and-tags/
+global:
+  resolve_timeout: 5m
+  opsgenie_api_key: __DEVOPS_OPSGENIE_API_KEY__
+  opsgenie_api_url: https://api.eu.opsgenie.com/
+
+route:
+  group_by: ['alertname', 'environment', 'severity', 'job', 'aws_environment', 'instance']
+  group_wait: 45s
+  group_interval: 10m
+  repeat_interval: 1h
+  # if nothing is catched by routes, it will deliver to default-catchall-slack
+  receiver: 'default-catchall-slack'
+  routes:
+  # WARNING alerts
+  # matches severity=warning and groups it to warning-devops-slack
+  # it then checks if a team label is in the alert and alerts it to the team receiver
+  # if no team label is found it will be delivered to warning-devops-slack as a fallback
+  # https://github.com/ruanbekker/cole-deadmanswitch-prometheus#how-does-it-work
+  - match:
+      alertname: DeadManSwitch
+    receiver: critical-deadmanswitch-alert
+    group_wait: 0s
+    group_interval: 1m
+    repeat_interval: 50s
+  - match:
+      severity: warning
+    receiver: warning-devops-slack
+    routes:
+    - match_re:
+        team: .*(devops).*
+      receiver: warning-devops-slack
+    - match_re:
+        team: .*(techops).*
+      receiver: warning-techops-slack
+  # CRITICAL alerts
+  # matches severity=critical and groups it to critical-devops-page
+  # it then checks if a team label is in the alert and alerts to slack and pages opsgenie to the team receiver
+  # if no team label is found it will be delivered to critical-devops-page as a fallback
+  - match:
+      severity: critical
+    receiver: critical-devops-page
+    routes:
+    - match_re:
+        team: .*(devops).*
+      receiver: critical-devops-page
+    - match_re:
+        team: .*(techops).*
+      receiver: critical-techops-page
+      
+receivers:
+- name: 'default-catchall-slack'
+  slack_configs:
+    - send_resolved: true
+      api_url: '__SLACK_WEBHOOK_URL__'
+      channel: '#system-events'
+      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} (catchall)'
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* `{{ .Labels.severity }}`
+          *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Dashboard:* <{{ .Annotations.dashboard }}|:bar_chart:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+          *Details:*
+          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+           - *Impact*: {{ .Annotations.impact }}
+           - *Action*: {{ .Annotations.action }}
+           - *Receiver*: catchall-{{ .Labels.team }}-slack
+        {{ end }}
+
+- name: 'critical-deadmanswitch-alert'
+  webhook_configs:
+    - url: 'https://deadmanswitch.localdns.xyz/ping/xxxxxxxxxxxxxxxxxxxx'
+      send_resolved: false
+
+- name: 'warning-devops-slack'
+  slack_configs:
+    - send_resolved: true
+      api_url: '__SLACK_WEBHOOK_URL__'
+      channel: '#alerts-devops'
+      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} '
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* `{{ .Labels.severity }}`
+          *Graph:* {{ if eq .Labels.category "logs" }}<{{ .Annotations.logurl }}|:chart_with_upwards_trend:>{{ else }}<{{ .GeneratorURL }}|:chart_with_upwards_trend:>{{ end }} *Dashboard:* <{{ .Annotations.dashboard }}|:bar_chart:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+          *Details:*
+          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+           - *Impact*: {{ .Annotations.impact }}
+           - *Action*: {{ .Annotations.action }}
+           - *Receiver*: warning-{{ .Labels.team }}-slack
+        {{ end }}
+  webhook_configs:
+    - url: 'https://tools-api.localdns.xyz/alert/alertmanager?cd9c1e2ef5e46938d08c2b64=true'
+      send_resolved: true
+      http_config:
+        basic_auth:
+          password: super-secret-password
+    - url: 'https://alerta.localdns.xyz/api/webhooks/prometheus?api-key=__ALERTA_API_KEY__'
+      send_resolved: true
+
+- name: 'critical-devops-page'
+  slack_configs:
+    - send_resolved: true
+      api_url: '__SLACK_WEBHOOK_URL__'
+      channel: "#alerts-devops"
+      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} '
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* `{{ .Labels.severity }}`
+          *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Dashboard:* <{{ .Annotations.dashboard }}|:bar_chart:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+          *Details:*
+          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+           - *Impact*: {{ .Annotations.impact }}
+           - *Action*: {{ .Annotations.action }}
+           - *Receiver*: critical-{{ .Labels.team }}-slack
+        {{ end }}
+  opsgenie_configs:
+    - send_resolved: true
+      http_config: {}
+      api_key: __DEVOPS_OPSGENIE_API_KEY__
+      api_url: https://api.eu.opsgenie.com/
+      message: '[{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}'
+      description: "{{ .CommonAnnotations.description }}\nMore Info:\n- Impact: {{ .CommonAnnotations.impact }}\n- Action: {{ .CommonAnnotations.action }}\n- Dashboard: {{ .CommonAnnotations.dashboard }}\n- Runbook: {{ .CommonAnnotations.runbook }}"
+      source: '{{ template "opsgenie.default.source" . }}'
+      responders:
+      - name: DevOps
+        type: team
+      priority: '{{ if .CommonAnnotations.priority }}{{ .CommonAnnotations.priority }}{{ else }}P3{{ end }}'
+      tags: 'alertmanager'
+      note: 'test-note'
+  webhook_configs:
+    - url: 'https://alerta.localdns.xyz/api/webhooks/prometheus?api-key=__ALERTA_API_KEY__'
+      send_resolved: true
+
+- name: 'warning-techops-slack'
+  slack_configs:
+    - send_resolved: true
+      api_url: '__SLACK_WEBHOOK_URL__'
+      channel: '{{ range .Alerts }}{{ if eq .Labels.team "techops" }}#alerts-techops{{ else }}#system-events{{ end }}{{ end }}'
+      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} (warning)'
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* `{{ .Labels.severity }}`
+          *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Dashboard:* <{{ .Annotations.dashboard }}|:bar_chart:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+          *Details:*
+          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+           - *Impact*: {{ .Annotations.impact }}
+           - *Action*: {{ .Annotations.action }}
+           - *Receiver*: warning-{{ .Labels.team }}-slack
+        {{ end }}
+  webhook_configs:
+    - url: 'https://alerta.localdns.xyz/api/webhooks/prometheus?api-key=__ALERTA_API_KEY__'
+      send_resolved: true
+
+- name: 'critical-techops-page'
+  slack_configs:
+    - send_resolved: true
+      api_url: '__SLACK_WEBHOOK_URL__'
+      channel: '{{ range .Alerts }}{{ if eq .Labels.team "techops" }}#alerts-techops{{ else }}#system-events{{ end }}{{ end }}'
+      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} '
+      text: >-
+        {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* `{{ .Labels.severity }}`
+          *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Dashboard:* <{{ .Annotations.dashboard }}|:bar_chart:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+          *Details:*
+          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+           - *Impact*: {{ .Annotations.impact }}
+           - *Action*: {{ .Annotations.action }}
+           - *Receiver*: critical-{{ .Labels.team }}-slack
+        {{ end }}
+  opsgenie_configs:
+    - send_resolved: true
+      http_config: {}
+      api_key: __TRX_OPSGENIE_API_KEY__
+      api_url: https://api.eu.opsgenie.com/
+      message: '[{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}'
+      description: "{{ .CommonAnnotations.description }}\nMore Info:\n- Impact: {{ .CommonAnnotations.impact }}\n- Action: {{ .CommonAnnotations.action }}\n- Dashboard: {{ .CommonAnnotations.dashboard }}\n- Runbook: {{ .CommonAnnotations.runbook }}"
+      source: '{{ template "opsgenie.default.source" . }}'
+      responders:
+      - name: TechOps
+        type: team
+      priority: '{{ if .CommonAnnotations.priority }}{{ .CommonAnnotations.priority }}{{ else }}P3{{ end }}'
+      tags: 'alertmanager'
+      note: 'test-note'
+  webhook_configs:
+    - url: 'https://alerta.localdns.xyz/api/webhooks/prometheus?api-key=__ALERTA_API_KEY__'
+      send_resolved: true
+
+# Other Examples:
+#
+# opsgenie
+# https://prometheus.io/docs/alerting/latest/configuration/#opsgenie_config
+#- name: 'opsgenie-example'
+#  opsgenie_configs:
+#  - send_resolved: true
+#    api_key: __DEVOPS_OPSGENIE_API_KEY__
+#    api_url: https://api.eu.opsgenie.com/
+#    message: '{{ template "opsgenie.default.message" . }}'
+#    description: '{{ template "opsgenie.default.description" . }}'
+#    source: '{{ template "opsgenie.default.source" . }}'
+#    responders:
+#    - name: DevOps
+#      type: team
+#    priority: '{{ if .CommonAnnotations.priority }}{{ .CommonAnnotations.priority }}{{ else }}P3{{ end }}'
+#    tags: 'test-tag, devops'
+#    note: 'test-note'
+
+#- name: 'pushover-example'
+#  pushover_configs:
+#  - token: 'example'
+#    user_key: 'example'
+#    title: '{{ if eq .Status "firing" }}ALARM{{ else }}OK{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}'
+#    message: '{{ template "pushover.default.message" . }}'
+#    url: '{{ template "pushover.default.url" . }}'
+#    priority: '{{ if eq .Status "firing" }}2{{ else }}0{{ end }}'
+
+#- name: 'null-example'
+#- name: 'webhook-example'
+#  webhook_configs:
+#  - url: 'https://webhook-url.localdns.xyz/alert'
+#    send_resolved: true
+#    http_config:
+#      basic_auth:
+#        password: X-API-KEY
+
+# https://docs.alerta.io/en/latest/quick-start.html
+# https://github.com/alerta/prometheus-config
+#- name: 'alerta'
+#  webhook_configs:
+#    - url: 'https://alerta.localdns.xyz/api/webhooks/prometheus?api-key=x'
+#      send_resolved: true
+
+#- name: 'basic-slack'
+#  slack_configs:
+#    - send_resolved: true
+#      channel: "#system-events"
+#      title: '{{ if eq .Status "firing" }}:flushed:{{ else }}:sunglasses:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }} (catchall)'
+#      text: "{{ range .Alerts }}*Priority*: `{{ .Labels.severity | toUpper }}`\nInstance: {{ .Labels.instance }}\n{{ .Annotations.description }}\n{{ end }}"
+
+# - name: 'detailed-slack-alert'
+#  slack_configs:
+#    - send_resolved: true
+#      api_url: '__SLACK_WEBHOOK_URL__'
+#      channel: "#system-events"
+#      title: '{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} [{{ .Status | toUpper }}] {{ .CommonAnnotations.title }} (critical-{{ .CommonLabels.team }}-page)'
+#      text: >-
+#        {{ range .Alerts }}
+#          *Description:* {{ .Annotations.description }}
+#          *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+#          *Team:* {{ .Labels.team }}
+#          *Impact:* {{ .Annotations.impact }}
+#          *Action:* {{ .Annotations.action }}
+#          *Graph:* <{{ .GeneratorURL }}|Alertmanager Graph>
+#          *Dashboard:* <{{ .Annotations.dashboard }}|Grafana Dashboard>
+#          *Runbook:* <{{ .Annotations.runbook }}|Confluence Runbook>
+#          *Details:*
+#          {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+#          {{ end }}
+#        {{ end }}
+
+#inhibit_rules:
+#  - source_match:
+#      severity: 'critical'
+#    target_match:
+#      severity: 'warning'
+#    equal: ['alertname', 'dev', 'instance']
